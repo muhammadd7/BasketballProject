@@ -1,0 +1,244 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="main-container d-flex flex-column justify-content-center align-items-center">
+    <div class="right-column text-center">
+        <div class="logo-container mb-4">
+            <img src="{% static 'img/logo.png' %}" alt="Logo" class="chat-logo">
+        </div>
+        
+        <div class="search-container mb-3">
+            <form id="search-form" class="d-flex">
+                <input type="text" id="search-input" class="form-control me-2" placeholder="Search videos...">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+        </div>
+        
+        <div id="video-list" class="mb-3" style="display:none;">
+            <div class="card bg-dark text-white">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Search Results</span>
+                    <button id="close-search" class="btn btn-sm btn-outline-light">×</button>
+                </div>
+                <div class="card-body">
+                    <div id="search-results" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="chat-input-wrapper" id="upload-form">
+            {% csrf_token %}
+            <label for="video-upload" class="upload-button">+</label>
+            <input id="video-upload" type="file" name="video" accept="video/*" class="file-input" onchange="showFileName()">
+            <span id="file-name" class="file-name-placeholder">No file selected</span>
+            <button type="submit" class="send-button">→</button>
+        </form>
+
+        <p id="status-text" class="text-white mt-3"></p>
+
+        <div id="scoreboard" class="text-white mt-2" style="display:none;">
+            <div class="row g-2 justify-content-center">
+                <div class="col-12 mt-1">
+                    <small class="text-muted">Total Goals: <span id="total-makes">0</span></small>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">Total Misses: <span id="total-misses">0</span></small>
+                </div>
+            </div>
+        </div>
+
+        <div id="video-container"  style="display: none;" class="mt-3">
+            <video id="result-video"  controls muted width="100%" class="rounded shadow"></video>
+        </div>
+        <div id="compilation-container" style="display:none;" class="mt-3">
+            <div class="row">
+                <div class="col-12 col-md-6 mb-3">
+                    <h6 class="text-white">All Makes</h6>
+                    <video id="makes-video" controls muted width="100%" class="rounded shadow"></video>
+                    <a id="download-makes" href="#" download class="btn btn-outline-success btn-sm mt-2">Download All Makes</a>
+                </div>
+                <div class="col-12 col-md-6 mb-3">
+                    <h6 class="text-white">All Misses</h6>
+                    <video id="misses-video" controls muted width="100%" class="rounded shadow"></video>
+                    <a id="download-misses" href="#" download class="btn btn-outline-danger btn-sm mt-2">Download All Misses</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showFileName() {
+        const fileInput = document.getElementById('video-upload');
+        const fileNameSpan = document.getElementById('file-name');
+        fileNameSpan.textContent = fileInput.files.length > 0 ? fileInput.files[0].name : 'No file selected';
+    }
+    
+    // Search functionality
+    document.getElementById('search-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const searchQuery = document.getElementById('search-input').value.trim();
+        if (searchQuery) {
+            fetchSearchResults(searchQuery);
+        }
+    });
+    
+    document.getElementById('close-search').addEventListener('click', function() {
+        document.getElementById('video-list').style.display = 'none';
+    });
+    
+    function fetchSearchResults(query) {
+        fetch(`/search/?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('search-results');
+                const listDiv = document.getElementById('video-list');
+                resultsDiv.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(item => {
+                        const a = document.createElement('a');
+                        a.href = '#';
+                        a.className = 'list-group-item list-group-item-action bg-dark text-white';
+                        a.textContent = `${item.name} — ${item.date}`;
+                        a.onclick = () => {
+                            listDiv.style.display = 'none';
+                            startPolling(item.key);
+                            return false;
+                        };
+                        resultsDiv.appendChild(a);
+                    });
+                    listDiv.style.display = 'block';
+                } else {
+                    const noRes = document.createElement('div');
+                    noRes.className = 'text-muted';
+                    noRes.textContent = 'No results found.';
+                    resultsDiv.appendChild(noRes);
+                    listDiv.style.display = 'block';
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    document.getElementById('upload-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        const statusText = document.getElementById('status-text');
+        statusText.textContent = 'Uploading and processing...';
+        statusText.classList.add('animate');
+        
+        fetch('/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.key) {
+                startPolling(data.key);
+            } else {
+                statusText.textContent = 'Upload failed.';
+            }
+        })
+        .catch(error => {
+            statusText.textContent = 'Upload failed.';
+            console.error('Error:', error);
+        });
+    });
+
+    function startPolling(key) {
+        const statusText = document.getElementById('status-text');
+        statusText.textContent = 'Processing...';
+        statusText.classList.add('animate');
+        checkResults(key);
+    }
+
+    function checkResults(key) {
+        const statusText = document.getElementById('status-text');
+        const videoContainer = document.getElementById('video-container');
+        const resultVideo = document.getElementById('result-video');
+        const compilationContainer = document.getElementById('compilation-container');
+        const makesVideo = document.getElementById('makes-video');
+        const missesVideo = document.getElementById('misses-video');
+        const dlMakes = document.getElementById('download-makes');
+        const dlMisses = document.getElementById('download-misses');
+
+        fetch(`/get-results/?key=${key}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'done') {
+                    statusText.classList.remove('animate');
+
+                    const total = data.goal_count ?? 0;
+                    const misses = data.miss_count ?? 0;
+
+                    document.getElementById('total-makes').textContent = total;
+                    document.getElementById('total-misses').textContent = misses;
+                    document.getElementById('scoreboard').style.display = 'block';
+
+                    // Main highlight video (if present) or fallback
+                    if (data.play_video) {
+                        resultVideo.src = data.play_video;
+                        videoContainer.style.display = 'block';
+                        resultVideo.load();
+                        resultVideo.play();
+                    } else {
+                        videoContainer.style.display = 'none';
+                        resultVideo.src = '';
+                    }
+
+                    // Compiled Makes/Misses
+                    let hasCompiled = false;
+
+                    if (data.play_makes) {
+                        makesVideo.src = data.play_makes;
+                        dlMakes.href = data.makes_clip_url || data.play_makes;
+                        hasCompiled = true;
+                    } else {
+                        makesVideo.removeAttribute('src');
+                        dlMakes.removeAttribute('href');
+                    }
+
+                    if (data.play_misses) {
+                        missesVideo.src = data.play_misses;
+                        dlMisses.href = data.misses_clip_url || data.play_misses;
+                        hasCompiled = true;
+                    } else {
+                        missesVideo.removeAttribute('src');
+                        dlMisses.removeAttribute('href');
+                    }
+
+                    compilationContainer.style.display = hasCompiled ? 'block' : 'none';
+
+                    // Status text with download links
+                    let statusHtml = `✅ Processing complete.<br>🏀 Total makes: ${total} · ❌ Total misses: ${misses}`;
+                    if (data.play_video) {
+                        statusHtml += `<br><a href="${data.play_video}" download class="btn btn-success mt-2">⬇️ Download Clips</a>`;
+                    }
+                    if (data.play_makes) {
+                        statusHtml += ` <a href="${data.play_makes}" download class="btn btn-outline-success mt-2">⬇️ All Makes</a>`;
+                    }
+                    if (data.play_misses) {
+                        statusHtml += ` <a href="${data.play_misses}" download class="btn btn-outline-danger mt-2">⬇️ All Misses</a>`;
+                    }
+                    statusText.innerHTML = statusHtml;
+
+                } else {
+                    setTimeout(() => checkResults(key), 3000);
+                }
+            })
+            .catch(error => {
+                statusText.textContent = '❌ Failed to fetch results.';
+                console.error(error);
+            });
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+file '/Users/dev/Desktop/BasketballProject/myapp/static/uploaded_clips/WhatsApp Video 2025-08-24 at 07.35.57.mp4_2389548/make/make_001.mp4'
+file '/Users/dev/Desktop/BasketballProject/myapp/static/uploaded_clips/WhatsApp Video 2025-08-24 at 07.35.57.mp4_2389548/make/make_002.mp4'

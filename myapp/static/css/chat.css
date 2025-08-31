@@ -1,0 +1,90 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0B1A27;
+}
+
+.main-container {
+    min-height: 100vh;
+    background-color: #0B1A27;
+}
+
+.right-column {
+    width: 100%;
+    max-width: 500px;
+}
+
+.logo-container {
+    text-align: center;
+}
+
+.chat-logo {
+    width: 100px;
+    height: auto;
+}
+
+.chat-input-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 30px;
+    padding: 10px 20px;
+    background-color: #C6C6C6;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.upload-button {
+    all: unset;
+    font-size: 28px;
+    color: #007bff;
+    cursor: pointer;
+    padding: 0 10px;
+}
+
+.send-button {
+    all: unset;
+    font-size: 24px;
+    color: #007bff;
+    cursor: pointer;
+    padding: 0 10px;
+}
+
+.file-input {
+    display: none;
+}
+
+.file-name-placeholder {
+    flex: 1;
+    margin-left: 10px;
+    font-size: 16px;
+    color: #000;
+    text-align: left;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#status-text {
+    font-size: 16px;
+    color: #ffffff;
+}
+
+#status-text.animate::after {
+    content: ' ...';
+    animation: dots 1.2s infinite steps(3, end);
+}
+
+@keyframes dots {
+    0%, 20% {
+        content: ' .';
+    }
+    40% {
+        content: ' ..';
+    }
+    60% {
+        content: ' ...';
+    }
+    100% {
+        content: '';
+    }
+}
